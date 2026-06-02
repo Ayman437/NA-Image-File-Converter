@@ -1,5 +1,7 @@
 --> I want to note that if you are on Github and you want to use the software like any normal program on your computer "Windows 10+ 64-bit", just download "exe_program.rar" and extract it and then use it as an ordinary exe program.
 
+<img width="612" height="138" alt="Exe program files" src="https://github.com/user-attachments/assets/dd9d7cc7-6cff-44e3-8d6e-58f2c66c405b" />
+
 ## Instructions for normal user
 
 ## Format Converter Tool
@@ -11,6 +13,8 @@ This program is a format converter that can convert between the following format
 - JPEG
 - PDF
 
+<img width="76" height="108" alt="Formats GUI" src="https://github.com/user-attachments/assets/3531ba85-b0fc-4c35-a07e-58aae1336d0d" />
+
 ## How to use?
 - 1. Put the path of the folder containing the files to be converted in the File Folder field.
 - 2. In the output Folder field, put the path of the folder where you want to put the output files after conversion.
@@ -18,6 +22,10 @@ This program is a format converter that can convert between the following format
 - 4. If you are converting from images to PDF and do not want to collect all the images in one PDF file, you can disable the Merge PDF files option.
 - 5. Click on the convert button.
 - 6. Now it should start the file conversion process, and you should wait until the conversion process is finished. If you want to cancel the process, click on the cancel button.
+
+<img width="473" height="271" alt="Program GUI 2" src="https://github.com/user-attachments/assets/8382c87b-7812-4804-b931-b34a983e1b56" />
+<img width="470" height="271" alt="Program GUI 3" src="https://github.com/user-attachments/assets/1f8b9a0b-91fb-48d0-b4f2-5a262d4dce07" />
+<img width="471" height="271" alt="Program GUI 4" src="https://github.com/user-attachments/assets/e1fea77b-5ae4-4c9b-bb56-3e109fdb6656" />
 
 ## Version
 - Current version: 1.3.1
@@ -47,6 +55,8 @@ This program is a format converter that can convert between the following format
 - 11. Open variables observer.
 - 12. Reset settings.
 
+<img width="541" height="276" alt="Program settings GUI 2" src="https://github.com/user-attachments/assets/299bf92b-4744-450b-844d-520a5730ceff" />
+
 ## PDF sorting methods
 - 1. By name.
 - 2. By date.
@@ -59,8 +69,12 @@ This program is a format converter that can convert between the following format
 ## What is Console?
 - The console shows the output messages, meaning the console shows detailed information and real-time data. It's useful for advanced users needing deeper insights and for debugging.
 
+<img width="1920" height="1038" alt="Program console GUI 3" src="https://github.com/user-attachments/assets/3d48f4e1-21fe-497a-a9d9-a49e9ddbca83" />
+
 ## What is Variables observer?
 - The variables observer shows the program current variables and its values, most of these variables are created by me when I was writing the program's code (when I was programming it), meaning the variables observer shows detailed information and real-time data. It's useful for extra-advanced users needing deeper insights and for debugging.
+
+<img width="1920" height="1039" alt="Variables observer" src="https://github.com/user-attachments/assets/c493383d-756b-41b9-a39c-87d4ace9335f" />
 
 ## What is History?
 - The history feature allows you to keep track of all the activities and data you have generated while using the app. It acts as a comprehensive log that records your interactions, making it easy for you to revisit and review your past conversion processes at any time, it also records the input folder name & path, output folder name & path, files size, output files size, number of files, number of output files, files formats before converting, new files format, conversion date & time, conversion process duration and also all of the values of the program settings when the user converted the files.
