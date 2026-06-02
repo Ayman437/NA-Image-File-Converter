@@ -1,0 +1,1 @@
+This is the history folder where all convertion proccesses will be saved.
