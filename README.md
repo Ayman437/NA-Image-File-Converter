@@ -67,7 +67,7 @@ This program is a format converter that can convert between the following format
 - DPI stands for Dots Per Inch. It is a measure of the resolution of a printed or digital image. Higher DPI values mean higher resolution and better image quality, but they also require more processing power and memory. The max DPI value in the program is 2000, min is 1.
 
 ## What is Console?
-- The console shows the output messages, meaning the console shows detailed information and real-time data. It's useful for advanced users needing deeper insights and for debugging.
+- The console shows the output messages and the software's RAM usage, meaning the console shows detailed information and real-time data. It's useful for advanced users needing deeper insights and for debugging.
 
 <img width="1920" height="1038" alt="Program console GUI 3" src="https://github.com/user-attachments/assets/3d48f4e1-21fe-497a-a9d9-a49e9ddbca83" />
 
