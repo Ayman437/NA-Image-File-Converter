@@ -53,13 +53,13 @@ This program is a format converter that can convert between the following format
 - 3. By _PNUM_.
 - You can choose whether you want the sorting be ascending or descending, in the options [Asce] means ascending while [Desc] means descending.
 
-### What is DPI?
+## What is DPI?
 - DPI stands for Dots Per Inch. It is a measure of the resolution of a printed or digital image. Higher DPI values mean higher resolution and better image quality, but they also require more processing power and memory. The max DPI value in the program is 2000, min is 1.
 
-### What is Console?
+## What is Console?
 - The console shows the output messages, meaning the console shows detailed information and real-time data. It's useful for advanced users needing deeper insights and for debugging.
 
-### What is Variables observer?
+## What is Variables observer?
 - The variables observer shows the program current variables and its values, most of these variables are created by me when I was writing the program's code (when I was programming it), meaning the variables observer shows detailed information and real-time data. It's useful for extra-advanced users needing deeper insights and for debugging.
 
 ## What is History?
