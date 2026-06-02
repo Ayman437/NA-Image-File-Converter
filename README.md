@@ -95,4 +95,4 @@ This program is a format converter that can convert between the following format
 ## Some information for developers on Github
 - This source code of this software is written in python.
 - Libraries used in the software: socket, time, datetime, requests, threading, subprocess, tkinter, urllib3, os, sys, json.
-- The source code of this software is converted in an exe program using pyinstaller.
+- The source code of this software is converted into an exe program using pyinstaller.
