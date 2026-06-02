@@ -1,4 +1,4 @@
---> I want to note that if you are on github and you want to use the software like any normal program on your computer "Windows 10+ 64-bit", just download "exe_program.rar" and extract it and then use it as an ordinary exe program.
+--> I want to note that if you are on Github and you want to use the software like any normal program on your computer "Windows 10+ 64-bit", just download "exe_program.rar" and extract it and then use it as an ordinary exe program.
 
 ## Instructions for normal user
 
@@ -78,7 +78,7 @@ This program is a format converter that can convert between the following format
 - Developed by Ayman Saied -
 - Please contact me [ clulyf88@gmail.com ] if you face any problem with the program, so I can fix it -
 
-## Some information for developers on github
+## Some information for developers on Github
 - This source code of this software is written in python.
 - Libraries used in the software: socket, time, datetime, requests, threading, subprocess, tkinter, urllib3, os, sys, json.
 - The source code of this software is converted in an exe program using pyinstaller.
