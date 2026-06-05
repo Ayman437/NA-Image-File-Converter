@@ -95,6 +95,7 @@ This program is a format converter that can convert between the following format
 - Please contact me [ clulyf88@gmail.com ] if you face any problem with the program, so I can fix it -
 
 ## Some information for developers on Github
+- To run the program `python source_code.py`
 - This source code of this software is written in python.
 - Libraries used in the software: socket, time, datetime, requests, threading, subprocess, tkinter, urllib3, os, sys, json.
 - The source code of this software is converted into an exe program using pyinstaller.
