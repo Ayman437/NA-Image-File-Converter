@@ -4,6 +4,25 @@
 
 <img width="612" height="138" alt="Exe program files" src="https://github.com/user-attachments/assets/dd9d7cc7-6cff-44e3-8d6e-58f2c66c405b" />
 
+## Architecture
+
+```text
+NA-Image&File Converter/
+│
+├── data/
+│   ├── done.wav              # Notification sound played after conversion
+│   ├── icon.ico              # Application icon
+│   └── settings.json         # User settings and application configuration
+│
+├── history/                  # Conversion history
+│   └── README.txt            # history's folder README.txt
+│
+├── app_version.txt           # Current application version
+├── exe_program.rar           # Compiled Windows executable package
+├── README.md                 # Project documentation
+└── source_code.py            # Main application source code
+```
+
 ## Instructions for normal user
 
 ## Format Converter Tool
