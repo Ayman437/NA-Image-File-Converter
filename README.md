@@ -1,6 +1,6 @@
 # NA-Image&File Convertor
 
---> I want to note that if you are on Github and you want to use the software like any normal program on your computer "Windows 10+ 64-bit", just download "exe_program.rar" and extract it and then use it as an ordinary exe program.
+--> I want to note that if you are on Github and you want to use the software like any normal program on your computer "Windows 10+ 64-bit", just download `exe_program.rar` and extract it and then use it as an ordinary exe program.
 
 <img width="612" height="138" alt="Exe program files" src="https://github.com/user-attachments/assets/dd9d7cc7-6cff-44e3-8d6e-58f2c66c405b" />
 
