@@ -79,7 +79,7 @@ This program is a format converter that can convert between the following format
 12. Open variables observer.
 13. Reset settings.
 
-<img width="541" height="276" alt="Program settings GUI 2" src="https://github.com/user-attachments/assets/299bf92b-4744-450b-844d-520a5730ceff" />
+<img width="541" height="276" alt="Program settings GUI 2" src="https://github.com/user-attachments/assets/42ec4147-4d11-4f03-ab36-88e91257be5f" />
 
 ## PDF sorting methods
 
