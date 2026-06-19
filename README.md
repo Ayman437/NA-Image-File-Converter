@@ -137,7 +137,7 @@ This program is a format converter that can convert between the following format
 ## What is Variables observer?
 - The variables observer shows the program current variables and its values, most of these variables are created by me when I was writing the program's code (when I was programming it), meaning the variables observer shows detailed information and real-time data. It's useful for extra-advanced users needing deeper insights and for debugging.
 
-<img width="1920" height="1039" alt="Variables observer" src="https://github.com/user-aattachments/assets/c493383d-756b-41b9-a39c-87d4ace9335f" />
+<img width="1920" height="1039" alt="Variables observer" src="https://github.com/user-attachments/assets/84e41291-e941-47b6-9367-cedbd5698883" />
 
 ## What is History?
 - The history feature allows you to keep track of all the activities and data you have generated while using the app. It acts as a comprehensive log that records your interactions, making it easy for you to revisit and review your past conversion processes at any time, it also records the input folder name & path, output folder name & path, files size, output files size, number of files, number of output files, files formats before converting, new files format, conversion date & time, conversion process duration and also all the values of the program settings when the user converted the files.
