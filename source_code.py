@@ -1,3 +1,5 @@
+import gc
+import sys
 import time
 import shutil
 import threading
@@ -11,7 +13,7 @@ import pygame
 import random
 import re
 import os
-from PIL import Image
+from PIL import Image, ImageOps
 from PyPDF2 import PdfMerger
 import fitz
 import json
@@ -30,8 +32,15 @@ isShowingSpaceErrorAlert = False
 isShowingHisErrorAlertStage1 = False
 isShowingHisErrorAlertStage2 = False
 isShowingHisErrorAlertStage3 = False
+isResizeImagesWindowOpen = False
 cancelFiles = []
 supportedFilesFormatFound = []
+widthForSize = None
+heightForSize = None
+bgForSize = None
+methodForSize = None
+resamplingForSize = None
+
 
 def get_memory_usage():
     while isConsoleOpen:
@@ -56,7 +65,7 @@ def get_memory_usage():
 
         if memSize2.endswith("0") and memSize2.__len__() > 1:
             memSize2 = memSize2[:-1]
-            memSize2 = memSize2.replace(".0", "")
+            memSize2 = memSize2.replace(".00", "")
 
         if memSize2.endswith("."):
             memSize2 = memSize2[:-1]
@@ -71,6 +80,91 @@ def get_memory_usage():
 
         consoleWindow.title(f"Image/File Converter | Console | Memory usage: {memSize2} {memType}")
         time.sleep(1)
+
+
+def resize_image(method, resampling, width, height, img_path, output_path, bg_color):
+    if not os.path.exists(img_path):
+        return
+
+    console_log(f"Resizing image: {img_path}...")
+
+    img = Image.open(img_path)
+    new_width = width
+    new_height = height
+    resized = None
+
+    with Image.open(img_path) as img_to_get_inf:
+        image_height = img_to_get_inf.height
+        image_width = img_to_get_inf.width
+    img_to_get_inf.close()
+
+    if method == "exact_size":
+        if resampling == "LANCZOS (recommended)":
+            resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+        elif resampling == "BICUBIC":
+            resized = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+        elif resampling == "NEAREST":
+            resized = img.resize((new_width, new_height), Image.Resampling.NEAREST)
+        elif resampling == "BILINEAR":
+            resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
+
+    elif method.startswith("keep_aspect_ratio"):
+        if new_height is None:
+            new_height = int(image_height * new_width / image_width)
+            console_log(f"New computed height: {new_height}")
+            if resampling == "LANCZOS (recommended)":
+                resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            elif resampling == "BICUBIC":
+                resized = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            elif resampling == "NEAREST":
+                resized = img.resize((new_width, new_height), Image.Resampling.NEAREST)
+            elif resampling == "BILINEAR":
+                resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
+        elif new_width is None:
+            new_width = int(image_width * new_height / image_height)
+            console_log(f"New computed width: {new_width}")
+            if resampling == "LANCZOS (recommended)":
+                resized = img.resize((new_width, new_height), Image.Resampling.LANCZOS)
+            elif resampling == "BICUBIC":
+                resized = img.resize((new_width, new_height), Image.Resampling.BICUBIC)
+            elif resampling == "NEAREST":
+                resized = img.resize((new_width, new_height), Image.Resampling.NEAREST)
+            elif resampling == "BILINEAR":
+                resized = img.resize((new_width, new_height), Image.Resampling.BILINEAR)
+    elif method == "fit_inside_box":
+        copy = img.copy()
+        if resampling == "LANCZOS (recommended)":
+            copy.thumbnail((new_width, new_height), Image.Resampling.LANCZOS)
+        elif resampling == "BICUBIC":
+            copy.thumbnail((new_width, new_height), Image.Resampling.BICUBIC)
+        elif resampling == "NEAREST":
+            copy.thumbnail((new_width, new_height), Image.Resampling.NEAREST)
+        elif resampling == "BILINEAR":
+            copy.thumbnail((new_width, new_height), Image.Resampling.BILINEAR)
+        resized = copy
+    elif method == "crop_to_fit":
+        if resampling == "LANCZOS (recommended)":
+            resized = ImageOps.fit(img, (new_width, new_height), method=Image.Resampling.LANCZOS)
+        elif resampling == "BICUBIC":
+            resized = ImageOps.fit(img, (new_width, new_height), method=Image.Resampling.BICUBIC)
+        elif resampling == "NEAREST":
+            resized = ImageOps.fit(img, (new_width, new_height), method=Image.Resampling.NEAREST)
+        elif resampling == "BILINEAR":
+            resized = ImageOps.fit(img, (new_width, new_height), method=Image.Resampling.BILINEAR)
+    elif method == "add_padding":
+        if resampling == "LANCZOS (recommended)":
+            resized = ImageOps.pad(img, (new_width, new_height), color=bg_color, method=Image.Resampling.LANCZOS)
+        elif resampling == "BICUBIC":
+            resized = ImageOps.pad(img, (new_width, new_height), color=bg_color, method=Image.Resampling.BICUBIC)
+        elif resampling == "NEAREST":
+            resized = ImageOps.pad(img, (new_width, new_height), color=bg_color, method=Image.Resampling.NEAREST)
+        elif resampling == "BILINEAR":
+            resized = ImageOps.pad(img, (new_width, new_height), color=bg_color, method=Image.Resampling.BILINEAR)
+
+    if resized is not None:
+        resized.save(output_path)
+        console_log(f"Image {img_path} resized successfully")
+
 
 def update_console_text(*args):
     global consoleEntryBox
@@ -113,6 +207,12 @@ def conver_files():
     global isShowingHisErrorAlertStage1
     global isShowingHisErrorAlertStage2
     global isShowingHisErrorAlertStage3
+    global widthForSize
+    global heightForSize
+    global bgForSize
+    global methodForSize
+    global resamplingForSize
+
 
     sortingType = None
     gwf = os.getcwd().replace("\\", "/")
@@ -349,6 +449,8 @@ def conver_files():
 
                 if isShowingSpaceErrorAlert == False:
                     console_log(f"Successfully converted {image_file} to {seg.upper()} {successNumber}/{numberOfFiles} {str(round(successNumber * 100 / numberOfFiles, 1)).replace('.0', '')}%")
+                    if seg != "pdf":
+                        numSuce.set(f"      Successfully converted {successNumber}/{numberOfFiles} Files | {str(round(successNumber * 100 / numberOfFiles, 1)).replace('.0', '')}%")
 
             if seg == "pdf":
                 filesToMerge.append(pdf_output_path)
@@ -431,7 +533,8 @@ def conver_files():
                 os.remove(fileDele)
                 fileDele2 = fileDele.replace("\\", "")
                 console_log(f"{fileDele2.split('/')[fileDele2.split('/').__len__() - 1]} has been removed successfully")
-        console_log(f"Successfully deleted all Unmerged PDF files")
+        console_log(f"Successfully deleted all unmerged PDF files")
+
 
     if seg == "pdf-o":
         seg = "pdf"
@@ -569,6 +672,26 @@ def conver_files():
 
         numberOfFiles = total_pages + numberOfFilers2
 
+    if conv_running == True:
+        if widthForSize is not None or heightForSize is not None:
+            numSuce.set(f"      Resizing images | Please wait...")
+            console_log("Resizing images...")
+            numOfResizings = 0
+            numOfCompletedResizings = 0
+            for imgPath in cancelFiles:
+                if os.path.exists(imgPath) and not imgPath.endswith(".pdf"):
+                    numOfResizings += 1
+            for imgPath in cancelFiles:
+                if conv_running == True:
+                    imgPath = imgPath.replace("\\", "/")
+                    if not imgPath.endswith(".pdf"):
+                        numOfCompletedResizings += 1
+                        numSuce.set(f"      Successfully resized {numOfCompletedResizings}/{numOfResizings} Images | {str(round(numOfCompletedResizings * 100 / numOfResizings, 1)).replace('.0', '')}%")
+                        resize_image(methodForSize, resamplingForSize, widthForSize, heightForSize, imgPath, imgPath, bgForSize)
+                else:
+                    break
+
+
     if successNumber == 1:
         if conv_running == True:
             if isShowingSpaceErrorAlert == False:
@@ -657,7 +780,7 @@ def conver_files():
 
         if oSize6528.endswith("0") and oSize6528.__len__() > 1:
             oSize6528 = oSize6528[:-1]
-            oSize6528 = oSize6528.replace(".0", "")
+            oSize6528 = oSize6528.replace(".00", "")
 
         if oSize6528.endswith("."):
             oSize6528 = oSize6528[:-1]
@@ -690,7 +813,7 @@ def conver_files():
                 days = str(round(days, 2))
                 if days.endswith("0"):
                     days = days[:-1]
-                    days = days.replace(".0", "")
+                    days = days.replace(".00", "")
                 if days.endswith("."):
                     days = days[:-1]
                 result.append(f"{days} Days")
@@ -698,7 +821,7 @@ def conver_files():
                 days = str(round(days, 2))
                 if days.endswith("0"):
                     days = days[:-1]
-                    days = days.replace(".0", "")
+                    days = days.replace(".00", "")
                 if days.endswith("."):
                     days = days[:-1]
                 result.append(f"{days} Day")
@@ -707,7 +830,7 @@ def conver_files():
                 hours = str(round(hours, 2))
                 if hours.endswith("0"):
                     hours = hours[:-1]
-                    hours = hours.replace(".0", "")
+                    hours = hours.replace(".00", "")
                 if hours.endswith("."):
                     hours = hours[:-1]
                 result.append(f"{hours} Hours")
@@ -715,7 +838,7 @@ def conver_files():
                 hours = str(round(hours, 2))
                 if hours.endswith("0"):
                     hours = hours[:-1]
-                    hours = hours.replace(".0", "")
+                    hours = hours.replace(".00", "")
                 if hours.endswith("."):
                     hours = hours[:-1]
                 result.append(f"{hours} Hour")
@@ -724,7 +847,7 @@ def conver_files():
                 minutes = str(round(minutes, 2))
                 if minutes.endswith("0"):
                     minutes = minutes[:-1]
-                    minutes = minutes.replace(".0", "")
+                    minutes = minutes.replace(".00", "")
                 if minutes.endswith("."):
                     minutes = minutes[:-1]
                 result.append(f"{minutes} Minutes")
@@ -732,7 +855,7 @@ def conver_files():
                 minutes = str(round(minutes, 2))
                 if minutes.endswith("0"):
                     minutes = minutes[:-1]
-                    minutes = minutes.replace(".0", "")
+                    minutes = minutes.replace(".00", "")
                 if minutes.endswith("."):
                     minutes = minutes[:-1]
                 result.append(f"{minutes} Minute")
@@ -741,7 +864,7 @@ def conver_files():
                 seconds = str(round(seconds, 2))
                 if seconds.endswith("0"):
                     seconds = seconds[:-1]
-                    seconds = seconds.replace(".0", "")
+                    seconds = seconds.replace(".00", "")
                 if seconds.endswith("."):
                     seconds = seconds[:-1]
                 result.append(f"{seconds} Seconds")
@@ -749,7 +872,7 @@ def conver_files():
                 seconds = str(round(seconds, 2))
                 if seconds.endswith("0"):
                     seconds = seconds[:-1]
-                    seconds = seconds.replace(".0", "")
+                    seconds = seconds.replace(".00", "")
                 if seconds.endswith("."):
                     seconds = seconds[:-1]
                 result.append(f"{seconds} Second")
@@ -759,7 +882,7 @@ def conver_files():
         if mainsTime < 0.01:
             prossessTakes = "Less than 0.01 Second"
 
-        console_log(f"The Conversion process took about: {str(prossessTakes).replace('.0', '')}")
+        console_log(f"The Conversion process took about: {str(prossessTakes).replace('.00', '')}")
 
         settengsButton.config(state=tkinter.DISABLED)
         gwf4 = os.getcwd().replace("\\", "/")
@@ -902,11 +1025,11 @@ def conver_files():
 
                         if fSize2.endswith("0") and fSize2.__len__() > 1:
                             fSize2 = fSize2[:-1]
-                            fSize2 = fSize2.replace(".0", "")
+                            fSize2 = fSize2.replace(".00", "")
 
                         if oSize2.endswith("0") and oSize2.__len__() > 1:
                             oSize2 = oSize2[:-1]
-                            oSize2 = oSize2.replace(".0", "")
+                            oSize2 = oSize2.replace(".00", "")
 
                         if float(fSize2) < 2:
                             if ftype == "Bytes":
@@ -938,6 +1061,7 @@ def conver_files():
                         audioOption = "OFF"
                         sizeOption = "OFF"
                         openFolder = "OFF"
+                        imageResize4 = "OFF"
                         dpiOption = 500
                         qualityOption = 100
                         mergeOption = mpf.get()
@@ -948,6 +1072,8 @@ def conver_files():
                             sizeOption = "ON"
                         if dataS["SCAN"] == "ON":
                             audioOption = "ON"
+                        if dataS["RSIZ"] == "ON":
+                            imageResize4 = "ON"
                         if dataS["DPI"] <= 2000 and dataS["DPI"] >= 1:
                             dpiOption = dataS["DPI"]
                         if dataS["IGQ"] <= 100 and dataS["IGQ"] >= 1:
@@ -967,7 +1093,11 @@ def conver_files():
 
                         try:
                             clmn = "'"
-                            dataFile.write(f"{fileOrfilesInput.capitalize()} folder name: {input_folder.split('/')[input_folder.split('/').__len__() - 1]}\nOutput folder name: {output_folder.split('/')[output_folder.split('/').__len__() - 1]}\n\n{fileOrfilesInput.capitalize()} folder path: {input_folder}\nOutput folder path: {output_folder}\n\n{fileOrfilesInput.capitalize()} size: {fSize2} {ftype}\nOutput {fileOrfilesOutput} size: {oSize2} {oType}\n\nNumber of {fileOrfilesInput}: {numberOfFiles}\nNumber of output {fileOrfilesOutput}: {numberOfOutputFiles}\n\nFiles formats before converting: {supportedFilesFormatFound.__str__().replace('[', '').replace(']', '').replace(clmn, '')}\n\nNew {fileOrfilesOutput} format: {segType.replace('.', ' ').upper()}\n\nDate: {localTime} {localTime2}\nConversion process took about: {str(prossessTakes).replace('.0', '')}\n-----------------------------------------------------\n\nSuccessfully converted notification sound: {audioOption}\nAutomatically open output location after converting: {openFolder}\nSave converting operations in history folder: {historyOption}\nAllow converting file(s) with more than 500 MB of size: {sizeOption}\nDPI for PDF to Image Conversion: {dpiOption}\nImage quality percentage: {qualityOption}%\nPDF Sorting type: {sortingType.__str__()}\n\nMerge PDF files: {mergeOption}")
+
+                            resizeDetails = ""
+                            if widthForSize is not None or heightForSize is not None:
+                                resizeDetails = f"\n[Width: {widthForSize}, Height: {heightForSize}, Resize method: {methodForSize.replace(' (recommended)', '').replace('exact_size', 'Exact size').replace('crop_to_fit', 'Crop to fit').replace('add_padding', 'Add padding').replace('fit_inside_box', 'Fit inside box').replace('keep_aspect_ratio_w', 'Preserve aspect ratio (compute width)').replace('keep_aspect_ratio_h', 'Preserve aspect ratio (compute height)')}, Resampling: {resamplingForSize.replace(' (recommended)', '')}, Background color: {bgForSize.capitalize()}]"
+                            dataFile.write(f"{fileOrfilesInput.capitalize()} folder name: {input_folder.split('/')[input_folder.split('/').__len__() - 1]}\nOutput folder name: {output_folder.split('/')[output_folder.split('/').__len__() - 1]}\n\n{fileOrfilesInput.capitalize()} folder path: {input_folder}\nOutput folder path: {output_folder}\n\n{fileOrfilesInput.capitalize()} size: {fSize2} {ftype}\nOutput {fileOrfilesOutput} size: {oSize2} {oType}\n\nNumber of {fileOrfilesInput}: {numberOfFiles}\nNumber of output {fileOrfilesOutput}: {numberOfOutputFiles}\n\nFiles formats before converting: {supportedFilesFormatFound.__str__().replace('[', '').replace(']', '').replace(clmn, '')}\n\nNew {fileOrfilesOutput} format: {segType.replace('.', ' ').upper()}\n\nDate: {localTime} {localTime2}\nConversion process took about: {str(prossessTakes).replace('.0', '')}\n-----------------------------------------------------\n\nSuccessfully converted notification sound: {audioOption}\nAutomatically open output location after converting: {openFolder}\nSave converting operations in history folder: {historyOption}\nAllow converting file(s) with more than 500 MB of size: {sizeOption}\nDPI for PDF to Image Conversion: {dpiOption}\nImage quality percentage: {qualityOption}%\nPDF Sorting type: {sortingType.__str__()}\nResize images: {imageResize4}{resizeDetails}\n\nMerge PDF files: {mergeOption}")
                         except OSError as e:
                             if isShowingHisErrorAlertStage3 == False:
                                 isShowingHisErrorAlertStage3 = True
@@ -1024,6 +1154,13 @@ def conver_files():
         filesToMerge = 0
         meref = 0
         isShowingSpaceErrorAlert = False
+        widthForSize = None
+        heightForSize = None
+        bgForSize = None
+        methodForSize = None
+        resamplingForSize = None
+
+        gc.collect()
 
 isSavingInHistory = False
 isCancilingFilesNow = False
@@ -1035,10 +1172,10 @@ def browse_button():
 
     if fileName != "":
         imagesPathEntry.config(state="write")
-        console_log(f"Images/Files folder path has set to: {fileName}")
+        console_log(f"Images/Files folder path has been set to: {fileName}")
     else:
         imagesPathEntry.config(state="readonly")
-        console_log(f"Images/Files folder path has set to: None")
+        console_log(f"Images/Files folder path has been set to: None")
 
 def browse_button2():
     console_log("Asking directory for output folder path...")
@@ -1046,10 +1183,10 @@ def browse_button2():
     outputFolderPath.set(fileName)
     if fileName != "":
         outputPathEntry.config(state="write")
-        console_log(f"Output folder path has set to: {fileName}")
+        console_log(f"Output folder path has been set to: {fileName}")
     else:
         outputPathEntry.config(state="readonly")
-        console_log(f"Output folder path has set to: None")
+        console_log(f"Output folder path has been set to: None")
 
 def mergOnOf():
     if mpf.get() == "OFF":
@@ -1064,6 +1201,12 @@ def convertB():
     global isShowingHisErrorAlertStage1
     global isShowingHisErrorAlertStage2
     global isShowingHisErrorAlertStage3
+    global widthForSize
+    global heightForSize
+    global bgForSize
+    global methodForSize
+    global resamplingForSize
+
 
     if constate.get() == "Convert more":
         console_log("Resetting values...")
@@ -1071,6 +1214,11 @@ def convertB():
         isShowingHisErrorAlertStage1 = False
         isShowingHisErrorAlertStage2 = False
         isShowingHisErrorAlertStage3 = False
+        widthForSize = None
+        heightForSize = None
+        bgForSize = None
+        methodForSize = None
+        resamplingForSize = None
         imagesFolderPath.set("")
         outputFolderPath.set("")
         sen.config(state=tkinter.WRITABLE)
@@ -1167,7 +1315,7 @@ def convertB():
 
                                                 if oSize652.endswith("0") and oSize652.__len__() > 1:
                                                     oSize652 = oSize652[:-1]
-                                                    oSize652 = oSize652.replace(".0", "")
+                                                    oSize652 = oSize652.replace(".00", "")
 
                                                 if oSize652.endswith("."):
                                                     oSize652 = oSize652[:-1]
@@ -1208,9 +1356,15 @@ def convertB():
                                                     attenchan2.place(rely=0.87)
                                                     console_log("The values have been set successfully")
 
-                                                    console_log("Starting the conversion process...")
-                                                    thread1 = threading.Thread(target=conver_files)
-                                                    thread1.start()
+                                                    if settings["RSIZ"] == "ON" and not senV.get() == ".pdf":
+                                                        console_log("Opening resize images window option is ON")
+                                                        console_log("Opening resize images window...")
+
+                                                        openResizeImagesWindow()
+                                                    else:
+                                                        console_log("Starting the conversion process...")
+                                                        thread1 = threading.Thread(target=conver_files)
+                                                        thread1.start()
                                                 else:
                                                     console_log(f"Input error: The maximum size of the files before converting is {maxSizeInMB} MB")
                                                     errorShow(f"The maximum size of the files before converting is {maxSizeInMB} MB")
@@ -1248,124 +1402,158 @@ def convertB():
 def errorShow(text):
     errorText.set("      "+text)
 
-def close_settings(window):
+def close_settings():
     global isSettingsOpen
     global isClosed
     global consoleText
+    global settingsWindow
     global isConsoleOpen
 
     if isClosed == False:
-        if isConsoleOpen == True:
-            if consoleText.get() != "Closing settings...":
+        if isDeletingrightNow == False:
+            if isSavingInHistory == False:
                 console_log("Closing settings...")
-        settengsButton.config(state="write")
+                isSettingsOpen = False
+                settingsWindow.destroy()
 
-    isSettingsOpen = False
+                settengsButton.config(state="write")
+            else:
+                console_log("Close settings: Please wait until clearing history folder data")
+                messagebox.showwarning("Close settings", "Please wait until clearing history folder data")
+        else:
+            console_log("Exit settings: Please wait until updating history folder data")
+            messagebox.showwarning("Exit settings", "Please wait until updating history folder data")
+
 
 def audioOptionClick():
     console_log("Updating settings...")
     if audioB.get() == "OFF":
         console_log("Preparing new settings.json file data...")
         audioB.set("ON")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + 'ON' + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + 'ON' + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         file = open("data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Successfully converted notification sound option has set to: ON")
+        console_log("Successfully converted notification sound option has been set to: ON")
     else:
         console_log("Preparing new settings.json file data...")
         audioB.set("OFF")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + 'OFF' + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + 'OFF' + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf + "/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Successfully converted notification sound option has set to: OFF")
+        console_log("Successfully converted notification sound option has been set to: OFF")
+
+
+def resizeImagesCo():
+    console_log("Updating settings...")
+    if resizeImages.get() == "OFF":
+        console_log("Preparing new settings.json file data...")
+        resizeImages.set("ON")
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + 'ON' + '"' '}')
+        file = open("data/settings.json", "w")
+        console_log("Writing settings.json file...")
+        file.write(str(data).replace("'", '"'))
+        file.close()
+        console_log("Resize images has been set to: ON")
+    else:
+        console_log("Preparing new settings.json file data...")
+        resizeImages.set("OFF")
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + 'OFF' + '"' '}')
+        gwf = os.getcwd().replace("\\", "/")
+        file = open(gwf + "/data/settings.json", "w")
+        console_log("Writing settings.json file...")
+        file.write(str(data).replace("'", '"'))
+        file.close()
+        console_log("Resize images has been set to: OFF")
+
 
 def openFileCo():
     console_log("Updating settings...")
     if openFileB.get() == "OFF":
         console_log("Preparing new settings.json file data...")
         openFileB.set("ON")
-        data = json.loads('{"AOFL": "' + "ON" + '", "SCAN": "' + audioB.get() + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + "ON" + '", "SCAN": "' + audioB.get() + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf+"/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Automatically open output location after converting option has set to: ON")
+        console_log("Automatically open output location after converting option has been set to: ON")
     else:
         console_log("Preparing new settings.json file data...")
         openFileB.set("OFF")
-        data = json.loads('{"AOFL": "' + "OFF" + '", "SCAN": "' + audioB.get() + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + "OFF" + '", "SCAN": "' + audioB.get() + '", "ASF": "'+ sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf + "/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Automatically open output location after converting option has set to: OFF")
+        console_log("Automatically open output location after converting option has been set to: OFF")
+
 
 def sizeFileCo():
     console_log("Updating settings...")
     if sizeFile.get() == "OFF":
         console_log("Preparing new settings.json file data...")
         sizeFile.set("ON")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "ON", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "ON", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf + "/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Allow converting file(s) with more than 500 MB of size option has set to: ON")
+        console_log("Allow converting file(s) with more than 500 MB of size option has been set to: ON")
     else:
         console_log("Preparing new settings.json file data...")
         sizeFile.set("OFF")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "OFF", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "OFF", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf + "/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Allow converting file(s) with more than 500 MB of size option has set to: OFF")
+        console_log("Allow converting file(s) with more than 500 MB of size option has been set to: OFF")
 
 
 def orderPagesCo(option):
     console_log("Updating settings...")
 
     console_log("Preparing new settings.json file data...")
-    data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+    data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
     gwf = os.getcwd().replace("\\", "/")
     file = open(gwf + "/data/settings.json", "w")
     console_log("Writing settings.json file...")
     file.write(str(data).replace("'", '"'))
     file.close()
 
-    console_log("Sort PDF option has set to: " + orderPages.get())
+    console_log("Sort PDF option has been set to: " + orderPages.get())
 
 def historyCo():
     console_log("Updating settings...")
     if history.get() == "OFF":
         console_log("Preparing new settings.json file data...")
         history.set("ON")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "ON", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "ON", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf + "/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Save converting operations in history folder option has set to: ON")
+        console_log("Save converting operations in history folder option has been set to: ON")
     else:
         console_log("Preparing new settings.json file data...")
         history.set("OFF")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "OFF", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "OFF", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         gwf = os.getcwd().replace("\\", "/")
         file = open(gwf + "/data/settings.json", "w")
         console_log("Writing settings.json file...")
         file.write(str(data).replace("'", '"'))
         file.close()
-        console_log("Save converting operations in history folder option has set to: OFF")
+        console_log("Save converting operations in history folder option has been set to: OFF")
 
 def openHistory():
     console_log("Opening history folder in explorer...")
@@ -1382,7 +1570,7 @@ def resetSettings():
     isResetingSettingsNow = True
 
     console_log("Preparing new settings.json file data...")
-    data = json.loads('{"AOFL": "ON", "SCAN": "ON", "ASF": "OFF", "SFIH": "ON", "IGQ": 100, "DPI": 500, "SPP": "By name [Asce]"}')
+    data = json.loads('{"AOFL": "ON", "SCAN": "ON", "ASF": "OFF", "SFIH": "ON", "IGQ": 100, "DPI": 500, "SPP": "By name [Asce]", "RSIZ": "OFF"}')
     file3 = open(gwf3 + "/data/settings.json", "w")
     console_log("Writing settings.json file...")
     file3.write(str(data).replace("'", '"'))
@@ -1394,6 +1582,7 @@ def resetSettings():
     openFileB.set("ON")
     history.set("ON")
     sizeFile.set("OFF")
+    resizeImages.set("OFF")
     orderPages.set("By name [Asce]")
     dpi.set(500)
     quality.set(100)
@@ -1412,8 +1601,16 @@ def clearHisThr():
         if os.path.exists(gwf48 + '/history'):
             shutil.rmtree(gwf48 + '/history')
             os.makedirs(gwf48 + '/history')
+
+            with open("history/README.txt", "w", encoding="utf-8") as readmefile:
+                readmefile.write("This is the history folder where all convertion processes are saved.\nWhen you click on clear history button in the program, everything here is deleted.\nSo be careful and do not modify this folder and do not keep any important data here.")
+            readmefile.close()
         else:
             os.makedirs(gwf48 + '/history')
+            with open("history/README.txt", "w", encoding="utf-8") as readmefile:
+                readmefile.write("This is the history folder where all convertion processes are saved.\nWhen you click on clear history button in the program, everything here is deleted.\nSo be careful and do not modify this folder and do not keep any important data here.")
+            readmefile.close()
+
         if historyClearButton:
             historyClearButton.config(state="write")
         isDeletingrightNow = False
@@ -1465,7 +1662,8 @@ def validate_input(new_value):
             else:
                 if isResetingSettingsNow == False and isOpeningSettingsNow == False:
                     console_log("Preparing new settings.json file data...")
-                data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(value) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+
+                data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(quality.get()) + ', "DPI": ' + str(value) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
                 gwf242408 = os.getcwd().replace("\\", "/")
                 file = open(gwf242408 + "/data/settings.json", "w")
                 if isResetingSettingsNow == False and isOpeningSettingsNow == False:
@@ -1494,7 +1692,8 @@ def validate_input_100(new_value):
             else:
                 if isResetingSettingsNow == False and isOpeningSettingsNow == False:
                     console_log("Preparing new settings.json file data...")
-                data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(value) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+
+                data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", ' + '"IGQ": ' + str(value) + ', "DPI": ' + str(dpi.get()) + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
                 gwf43535 = os.getcwd().replace("\\", "/")
                 file = open(gwf43535 + "/data/settings.json", "w")
                 if isResetingSettingsNow == False and isOpeningSettingsNow == False:
@@ -1509,10 +1708,16 @@ def validate_input_100(new_value):
     else:
         return False
 
-def close_console(window):
+
+def cannot_close_resize_images_window():
+    console_log("Cannot close resize images window")
+
+def close_console():
     global openConsoleButton
     global isConsoleOpen
     global isSettingsOpen
+    global consoleWindow
+
 
     console_log("Closing console... Bye!")
 
@@ -1520,6 +1725,8 @@ def close_console(window):
         openConsoleButton.config(state="write")
 
     isConsoleOpen = False
+    consoleWindow.destroy()
+
 
 def close_variablesObserver(window):
     global openVariablesObserverButton
@@ -1533,6 +1740,141 @@ def close_variablesObserver(window):
         openVariablesObserverButton.config(state="write")
 
     isVariablesObserverOpen = False
+
+
+def validate_input3(new_value):
+    if new_value.isdigit():
+        value = int(new_value)
+        if value < 1:
+            return False
+        else:
+            return new_value
+    elif new_value == "":
+        return 1
+    else:
+        return False
+
+
+def continueConvertionProccess(w, h, b, m, r):
+    global resizeImagesWindow
+    global isResizeImagesWindowOpen
+    global widthForSize
+    global heightForSize
+    global bgForSize
+    global methodForSize
+    global resamplingForSize
+
+    console_log("Validating resize image inputs...")
+    if b == "White" or b == "Black" or b == "Red" or b == "Green" or b == "Blue" or b == "Yellow" or b == "Gray":
+        if m == "Fit inside box" or m == "Exact size" or m == "Preserve aspect ratio (compute width)" or m == "Preserve aspect ratio (compute height)" or m == "Crop to fit" or m == "Add padding":
+            if r == "LANCZOS (recommended)" or r == "BICUBIC" or r == "NEAREST" or r == "BILINEAR":
+                if w != "" and h != "":
+                    if int(w) != 0 and int(h) != 0:
+                        console_log("Validating resize image inputs is finished successfully")
+
+                        widthForSize = int(w)
+                        heightForSize = int(h)
+                        bgForSize = b
+                        methodForSize = m
+                        resamplingForSize = r
+
+                        if methodForSize == "Preserve aspect ratio (compute width)":
+                            widthForSize = None
+                            methodForSize = "keep_aspect_ratio_w"
+                        elif methodForSize == "Preserve aspect ratio (compute height)":
+                            heightForSize = None
+                            methodForSize = "keep_aspect_ratio_h"
+                        else:
+                            methodForSize = methodForSize.replace(" ", "_").lower()
+
+                        bgForSize = bgForSize.lower()
+
+                        isResizeImagesWindowOpen = False
+                        resizeImagesWindow.destroy()
+                        console_log("Starting the conversion process...")
+                        thread1 = threading.Thread(target=conver_files)
+                        thread1.start()
+                    else:
+                        console_log("Invalid width or height")
+                        messagebox.showwarning("Resize images", "Please enter a valid width and height")
+                else:
+                    console_log("Invalid width or height")
+                    messagebox.showwarning("Resize images", "Please enter a valid width and height")
+            else:
+                console_log("Invalid resampling")
+                messagebox.showwarning("Resize images", "Please choose a resampling")
+        else:
+            console_log("Invalid resize method")
+            messagebox.showwarning("Resize images", "Please choose a resize method")
+    else:
+        console_log("Invalid background color")
+        messagebox.showwarning("Resize images", "Please choose a background color")
+
+
+def openResizeImagesWindow():
+    global isResizeImagesWindowOpen
+    global resizeImagesWindow
+
+    isResizeImagesWindowOpen = True
+
+    width = StringVar()
+    width.set("1")
+    height = StringVar()
+    height.set("1")
+    selectedMethod = StringVar()
+    selectedResampling = StringVar()
+    selectedBgColor = StringVar()
+
+    resizeImagesWindow = Toplevel(root)
+    if os.path.exists(os.getcwd().replace("\\", "/") + "/data/icon.ico"):
+        resizeImagesWindow.iconbitmap(os.getcwd().replace("\\", "/") + "/data/icon.ico")
+    resizeImagesWindow.title("NA-Image&File Converter | Resize images")
+    resizeImagesWindow.maxsize(width=400, height=140)
+    resizeImagesWindow.minsize(width=400, height=140)
+
+    widthLabel = Label(resizeImagesWindow, text="  Please enter new width in pixels: ")
+    widthLabel.grid(row=0, column=0, columnspan=4, sticky=W, pady=2)
+    vcmd3 = (resizeImagesWindow.register(validate_input3), '%P')
+    widthButton = tkinter.Entry(resizeImagesWindow, textvariable=width, width=8, validate='key', validatecommand=vcmd3)
+    widthButton.grid(row=0, column=1, sticky=W, pady=2, padx=190)
+
+    heightLabel = Label(resizeImagesWindow, text="  Please enter new height in pixels: ")
+    heightLabel.grid(row=1, column=0, columnspan=4, sticky=W, pady=2)
+    heightButton = tkinter.Entry(resizeImagesWindow, textvariable=height, width=8, validate='key', validatecommand=vcmd3)
+    heightButton.grid(row=1, column=1, sticky=W, pady=2, padx=190)
+
+    resizeMethodLabel = Label(resizeImagesWindow, text="  Resize method: ")
+    resizeMethodLabel.grid(row=2, column=0, columnspan=4, sticky=W, pady=2)
+
+    suppMethods = ['Select', 'Exact size', 'Preserve aspect ratio (compute width)', 'Preserve aspect ratio (compute height)', 'Fit inside box', 'Crop to fit', 'Add padding']
+
+    methodSelectSen = OptionMenu(resizeImagesWindow, selectedMethod, *suppMethods, command=console_log_selected_method)
+    methodSelectSen.grid(row=2, column=1, sticky=W, pady=2, padx=90)
+
+    resamplingLabel = Label(resizeImagesWindow, text="  Resampling: ")
+    resamplingLabel.grid(row=3, column=0, columnspan=4, sticky=W, pady=2)
+
+    suppResamplings = ['Select', 'LANCZOS (recommended)', 'BICUBIC', 'NEAREST', 'BILINEAR']
+
+    resampleSelectSen = OptionMenu(resizeImagesWindow, selectedResampling, *suppResamplings, command=console_log_selected_resampling)
+    resampleSelectSen.grid(row=3, column=1, sticky=W, pady=2, padx=75)
+
+    continueConvertionButton = Button(resizeImagesWindow, text="Cancel", command=stopConvirtingRun2)
+    continueConvertionButton.place(rely=0.78, relx=0.45)
+
+    continueConvertionButton = Button(resizeImagesWindow, text="Continue converting", command=lambda: continueConvertionProccess(width.get(), height.get(), selectedBgColor.get(), selectedMethod.get(), selectedResampling.get()))
+    continueConvertionButton.place(rely=0.78, relx=0.68)
+
+    bgColorLabel = Label(resizeImagesWindow, text="Background color: ")
+    bgColorLabel.place(rely=0.01, relx=0.68)
+
+    suppColors = ['Select', 'White', 'Black', 'Red', 'Green', 'Blue', 'Yellow', 'Gray']
+
+    bgColorSen = OptionMenu(resizeImagesWindow, selectedBgColor, *suppColors, command=console_log_selected_bg_color)
+    bgColorSen.place(rely=0.15, relx=0.69)
+
+    resizeImagesWindow.protocol("WM_DELETE_WINDOW", cannot_close_resize_images_window)
+
 
 def openConsole():
     global isConsoleOpen
@@ -1577,7 +1919,7 @@ def openConsole():
     getMmoryUsageFun = threading.Thread(target=get_memory_usage)
     getMmoryUsageFun.start()
 
-    consoleWindow.bind("<Destroy>", close_console)
+    consoleWindow.protocol("WM_DELETE_WINDOW", close_console)
 
 
 def openVariablesObserver():
@@ -1610,12 +1952,13 @@ def openVariablesObserver():
 
     VariablesObserverWindow.bind("<Destroy>", close_variablesObserver)
 
+
 def printingVariables():
     global VariablesObserverEntryBox
 
     while True:
-        if isVariablesObserverOpen and VariablesObserverEntryBox and not isClosed:
-            time.sleep(0.2)
+        time.sleep(0.2)
+        if isVariablesObserverOpen and VariablesObserverEntryBox:
 
             variavlesAndValues = "None"
             timeVOHour2 = "None"
@@ -1642,6 +1985,8 @@ def printingVariables():
             VariablesObserverEntryBox.config(state=tkinter.DISABLED)
         else:
             break
+
+
 def openSettings():
     global settingsWindow
     global audioB
@@ -1658,6 +2003,7 @@ def openSettings():
     global isVariablesObserverOpen
     global isOpeningSettingsNow
     global orderPages
+    global resizeImages
 
     isOpeningSettingsNow = True
 
@@ -1673,6 +2019,9 @@ def openSettings():
     sizeFile.set("OFF")
     orderPages = StringVar()
     orderPages.set("By name [Asce]")
+    resizeImages = StringVar()
+    resizeImages.set("OFF")
+
     dpi = tkinter.IntVar()
     dpi.set(500)
     quality = tkinter.IntVar()
@@ -1685,6 +2034,7 @@ def openSettings():
         console_log("Setting values...")
         openFileB.set(data["AOFL"])
         audioB.set(data["SCAN"])
+        resizeImages.set(data["RSIZ"])
         sizeFile.set(data["ASF"])
         history.set(data["SFIH"])
         dpi.set(data["DPI"])
@@ -1692,7 +2042,7 @@ def openSettings():
         orderPages.set(data["SPP"])
     else:
         console_log("Creating settings.json file...")
-        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", "IGQ": ' + str(quality.get()) + ', "DPI": ' + ', "SPP": ' + '"' + orderPages.get() + '"' + '}')
+        data = json.loads('{"AOFL": "' + openFileB.get() + '", "SCAN": "' + audioB.get() + '", "ASF": "' + sizeFile.get() + '", ' + '"SFIH": "' + history.get() + '", "IGQ": ' + str(quality.get()) + ', "DPI": ' + ', "SPP": ' + '"' + orderPages.get() + '"' + ', "RSIZ": "' + resizeImages.get() + '"' '}')
         file = open(gwf+"/data/settings.json", "w")
         file.write(str(data).replace("'", '"'))
         file.close()
@@ -1701,8 +2051,8 @@ def openSettings():
     if os.path.exists(os.getcwd().replace("\\", "/") + "/data/icon.ico"):
         settingsWindow.iconbitmap(os.getcwd().replace("\\", "/") + "/data/icon.ico")
     settingsWindow.title("NA-Image&File Converter | Settings")
-    settingsWindow.maxsize(width=540, height=245)
-    settingsWindow.minsize(width=540, height=245)
+    settingsWindow.maxsize(width=540, height=250)
+    settingsWindow.minsize(width=540, height=250)
     settengsButton.config(state=tkinter.DISABLED)
 
     slbl1 = Label(settingsWindow, text="  Successfully converted notification sound: ")
@@ -1725,45 +2075,49 @@ def openSettings():
     sizeFileOption = Button(settingsWindow, textvariable=sizeFile, command=sizeFileCo)
     sizeFileOption.grid(row=3, column=1, sticky=W, pady=2, padx=163.5)
 
-    vcmd = (root.register(validate_input), '%P')
+    slbl49 = Label(settingsWindow, text="  Open resize images window before every convertion: ")
+    slbl49.grid(row=4, column=0, columnspan=4, sticky=W, pady=2)
+    resizeImagesOption = Button(settingsWindow, textvariable=resizeImages, command=resizeImagesCo)
+    resizeImagesOption.grid(row=4, column=1, sticky=W, pady=2, padx=163.5)
 
     slbl8 = Label(settingsWindow, text="  Sort PDF pages: ")
-    slbl8.grid(row=4, column=0, columnspan=4, sticky=W, pady=2)
+    slbl8.grid(row=5, column=0, columnspan=4, sticky=W, pady=2)
 
     suppOptions = ['Select', 'By name [Asce]', 'By date [Asce]', 'By _PNUM_ [Asce]', 'By name [Desc]', 'By date [Desc]', 'By _PNUM_ [Desc]']
 
     slbl8 = OptionMenu(settingsWindow, orderPages, *suppOptions, command=orderPagesCo)
-    slbl8.grid(row=4, column=1, sticky=W, padx=120)
+    slbl8.grid(row=5, column=1, sticky=W, padx=120)
 
     if os.path.exists(gwf+"/data/settings.json"):
         orderPages.set(data["SPP"])
 
     slbl5 = Label(settingsWindow, text="  DPI for PDF to Image Conversion - Max=2000, Min=1: ")
-    slbl5.grid(row=5, column=0, columnspan=4, sticky=W, pady=2)
+    slbl5.grid(row=6, column=0, columnspan=4, sticky=W, pady=2)
+    vcmd = (root.register(validate_input), '%P')
     dpiButtton = tkinter.Entry(settingsWindow, textvariable=dpi, width=5, validate='key', validatecommand=vcmd)
-    dpiButtton.grid(row=5, column=1, sticky=W, pady=2, padx=190)
+    dpiButtton.grid(row=6, column=1, sticky=W, pady=2, padx=190)
 
     vcmd2 = (root.register(validate_input_100), '%P')
 
     slbl6 = Label(settingsWindow, text="  Image quality percentage - Max=100%, Min=1%: ")
-    slbl6.grid(row=6, column=0, columnspan=4, sticky=W, pady=2)
+    slbl6.grid(row=7, column=0, columnspan=4, sticky=W, pady=2)
     qualityButtton = tkinter.Entry(settingsWindow, textvariable=quality, width=5, validate='key', validatecommand=vcmd2)
-    qualityButtton.grid(row=6, column=1, sticky=W, pady=2, padx=190)
+    qualityButtton.grid(row=7, column=1, sticky=W, pady=2, padx=190)
 
     slbl7 = Label(settingsWindow, text="%")
-    slbl7.grid(row=6, column=1, columnspan=4, sticky=W, pady=2, padx=225)
+    slbl7.grid(row=7, column=1, columnspan=4, sticky=W, pady=2, padx=225)
 
     historyButton = Button(settingsWindow, text="Open history folder", command=openHistory)
-    historyButton.place(rely=0.82, relx=0.02)
+    historyButton.place(rely=0.88, relx=0.02)
 
     historyClearButton = Button(settingsWindow, text="Clear history", command=clearHis)
-    historyClearButton.place(rely=0.82, relx=0.24)
+    historyClearButton.place(rely=0.88, relx=0.24)
 
     openConsoleButton = Button(settingsWindow, text="Open console", command=openConsole)
-    openConsoleButton.place(rely=0.82, relx=0.39)
+    openConsoleButton.place(rely=0.88, relx=0.39)
 
     openVariablesObserverButton = Button(settingsWindow, text="Open variables observer", command=openVariablesObserver)
-    openVariablesObserverButton.place(rely=0.82, relx=0.555)
+    openVariablesObserverButton.place(rely=0.88, relx=0.555)
 
     if isConsoleOpen == True:
         openConsoleButton.config(state=tkinter.DISABLED)
@@ -1772,12 +2126,13 @@ def openSettings():
         openVariablesObserverButton.config(state=tkinter.DISABLED)
 
     resetButton = Button(settingsWindow, text="Reset settings", command=resetSettings)
-    resetButton.place(rely=0.82, relx=0.83)
+    resetButton.place(rely=0.88, relx=0.83)
 
     isSettingsOpen = True
     isOpeningSettingsNow = False
 
-    settingsWindow.bind("<Destroy>", close_settings)
+    settingsWindow.protocol("WM_DELETE_WINDOW", close_settings)
+
 
 def playDoneSound():
     console_log("Playing done sound...")
@@ -1789,17 +2144,49 @@ def playDoneSound():
         console_log("Error in getting sound: The sound does not exist")
 
 def console_log_selected_format(format):
-    console_log(f"New file/image format has set to: {format}")
+    console_log(f"New file/image format has been set to: {format}")
+
+def console_log_selected_method(method):
+    console_log(f"Resize method has been set to: {method}")
+
+def console_log_selected_resampling(resampling):
+    console_log(f"Resampling has been set to: {resampling}")
+
+def console_log_selected_bg_color(color):
+    console_log(f"Background has been set to: {color}")
+
 
 def stopConvirtingRun():
     global conv_running
+    global isResizeImagesWindowOpen
+    global resizeImagesWindow
+    global canselButton
+
+    if isResizeImagesWindowOpen:
+        isResizeImagesWindowOpen = False
+        resizeImagesWindow.destroy()
     conv_running = False
     canselButton.config(text="Canceling...", state=tkinter.DISABLED)
+
+def stopConvirtingRun2():
+    global isResizeImagesWindowOpen
+    global resizeImagesWindow
+
+    isResizeImagesWindowOpen = False
+    resizeImagesWindow.destroy()
+
+    constate.set("Convert more")
+    canselButton.config(state=DISABLED)
+    convertButton.config(state="write")
+    numSuce.set(f"      Successfully canceled the operation")
+    console_log("Successfully canceled the operation")
+
 
 gwf3 = os.getcwd().replace("\\", "/")
 if not os.path.exists(gwf3+"/data/settings.json"):
     console_log("Creating settings.json file...")
-    data = json.loads('{"AOFL": "ON", "SCAN": "ON", "ASF": "OFF", "SFIH": "ON", "IGQ": 100, "DPI": 500, "SPP": "By name [Asce]"}')
+    data = json.loads('{"AOFL": "ON", "SCAN": "ON", "ASF": "OFF", "SFIH": "ON", "IGQ": 100, "DPI": 500, "SPP": "By name [Asce]"}, "RSIZ", "OFF"')
+
     file2 = open(gwf3+"/data/settings.json", "w")
     file2.write(str(data).replace("'", '"'))
     file2.close()
@@ -1867,7 +2254,7 @@ canselButton.grid_forget()
 
 attenchan = Label(root, text="      If there is any file in output folder has this format or unsupported format,")
 attenchan.place_forget()
-attenchan2 = Label(root, text="      It will be exscluded")
+attenchan2 = Label(root, text="      it will be excluded")
 attenchan2.place_forget()
 
 errorMesseg = tkinter.Label(root, fg="red", textvariable=errorText)
@@ -1875,6 +2262,7 @@ errorMesseg.place(rely=0.9)
 
 settengsButton = Button(root, text="Settings", command=openSettings)
 settengsButton.place(rely=0.88, relx=0.794)
+
 
 def close_root():
     global cancelFiles
@@ -1899,6 +2287,11 @@ def close_root():
                 if isDeletingrightNow == False:
                     isClosed = True
                     root.destroy()
+
+                    try:
+                        sys.exit()
+                    except SystemExit:
+                        os._exit(0)
                 else:
                     console_log("Exit: Please wait until clearing history folder data")
                     messagebox.showwarning("Exit", "Please wait until clearing history folder data")
